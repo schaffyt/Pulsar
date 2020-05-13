@@ -1,18 +1,17 @@
-library(ggplot2)
-library(e1071)
-library(Hmisc)
-library(pROC)
-library(caret)
-library(rsample)      # data splitting 
-library(randomForest) # basic implementation
-library(neuralnet)
-library(ROCR)
-library(nnet)
-library(corrplot)
-library(xgboost)
-
+require(ggplot2)
+require(e1071)
+require(Hmisc)
+require(pROC)
+require(caret)
+require(rsample)      # data splitting 
+require(randomForest) # basic implementation
+require(neuralnet)
+require(ROCR)
+require(nnet)
+require(corrplot)
+require(xgboost)
+require(hrbrthemes)
 #Load data
-setwd("D:/Kaggle/Pulsar")  #instert your own path here
 pulsar <- read.csv("pulsar_stars.csv", header = T)
 names(pulsar) = c("mean_int_prof","std_int_prof","excess_kurt_int_prof",
                   "skew_int_prof","mean_dm_snr","std_dm_snr",
@@ -20,13 +19,32 @@ names(pulsar) = c("mean_int_prof","std_int_prof","excess_kurt_int_prof",
 
 
 
-#EDA
+#EDA and Cleaning
+pulsar$class = as.factor(pulsar$class)
 apply(pulsar, 2, function(x) any(is.na(x))) # check for NA missing data
+#no missing values
 head(pulsar, 3)
 str(pulsar)
-correlation_matrix = cor(pulsar)
-corrplot(correlation_matrix, method="circle", bg = "grey")
-cor.test(pulsar$std_int_prof, pulsar$excess_kurt_dm_snr)
+
+ggplot(pulsar) +
+  aes(x = excess_kurt_int_prof, y = excess_kurt_dm_snr, colour = class) +
+  geom_point(size = 1.06) +
+  scale_color_viridis_d(option = "viridis") +
+  labs(x = "Excess Kurtosis of Integrated Profile", y = "Excess Kurtosis of DM SNR Curve", title = "Pulsars") +
+  theme_modern_rc() +
+  facet_wrap(vars(class))
+
+ggplot(pulsar) +
+  aes(x = mean_int_prof, y = mean_dm_snr, colour = class) +
+  geom_point(size = 1.06) +
+  scale_color_viridis_d(option = "viridis") +
+  labs(x = "Mean of Integrated Profile", y = "Mean of DM SNR Curve", title = "Pulsars") +
+  theme_modern_rc() +
+  facet_wrap(vars(class))
+
+#Just based on these 4 variables the data looks seperable upon first glance...
+
+
 
 
 ggplot(pulsar,aes(x = mean_int_prof, y = excess_kurt_int_prof)) + 
@@ -44,10 +62,20 @@ ggplot(data = pulsar, aes(x=1/std_dm_snr, y=excess_kurt_dm_snr))+
   geom_smooth(method="lm", formula = y ~ poly(x,3))
 
 
-
-
-#split data into test and train sets
+pulsar$class = as.numeric(pulsar$class)-1
+correlation_matrix = cor(pulsar)
+corrplot(correlation_matrix, method="circle", bg = "grey", title = "Correlation Matrix")
+cor.test(pulsar$std_int_prof, pulsar$excess_kurt_dm_snr)
 pulsar$class = as.factor(pulsar$class)
+
+
+
+
+
+
+
+## Split Data into Test and Train Sets
+
 test_ind = sample(1:(nrow(pulsar)/10)) #10% of the data is in the test set
 train = pulsar[-test_ind,]
 test = pulsar[test_ind,]
@@ -70,7 +98,7 @@ svmfit1 <- svm(class ~ ., data = train, kernel = "linear")
 plot(svmfit1, train, mean_int_prof~std_int_prof, svSymbol = 8, dataSymbol = 1, symbolPalette = rainbow(2),
      color.palette = topo.colors)
 
-svm_predictions = predict(svmfit3, newdata = test)
+svm_predictions = predict(svmfit1, newdata = test)
 ROC1 <- roc(test$class, as.numeric(svm_predictions)-1)
 plot(ROC1, col = "blue")
 AUC1 <- auc(ROC1)
@@ -85,7 +113,7 @@ bestmod
 #here is our best model, radial kernel it is!
 svm_predictions = predict(bestmod, newdata = test)
 ROC1 <- roc(test$class, as.numeric(svm_predictions)-1)
-plot(bestmod, data = pulsar, formula  =)
+plot(bestmod, data = pulsar, formula  = mean_int_prof~std_int_prof)
 plot(ROC1, col = "blue")
 title("Best SVM Model AUC")
 AUC1 <- auc(ROC1)
@@ -95,7 +123,7 @@ AUC1
 
 
 ############### Random Forest Time  #############################
-rf = randomForest(class~., data = train)
+rf1 = randomForest(class~., data = train)
 fr_pred_test = predict(rf1, type = "response", newdata = test)
 auc(test$class, as.numeric(fr_pred_test), plot = T)
 #Area under the curve: 0.9126
@@ -103,26 +131,28 @@ auc(test$class, as.numeric(fr_pred_test), plot = T)
 
 
 ############# Quick Nerual Network  ####################
-nnet1 <- nnet(class~., data = train, size = 2)
-nnet_pred = predict(nnet1, type = "class", newdata = test)
-plot(nnet1)
-auc(test$class, as.numeric(nnet_pred_test), plot = T)
-#Area under the curve: 0.9104
-
+nn <- nnet(class~., data = train, size = 2)
+nn_pred = predict(nn2, newdata = test)
+plot(nn2)
+ROC2 <- roc(test$class, as.numeric(nnet_pred))
+plot(ROC2, col = "purple")
+title("Single Layer NN Model AUC")
+AUC2 <- auc(ROC2)
+AUC2
 
 
 
 ############ Extreme Gradient Boosting  #####################
-class_numeric = as.numeric(train$class) - 1
-train_numeric = train
-train_numeric$class = class_numeric
-bstDense <- xgboost(data = as.matrix(train_numeric), label = train_numeric$class, max.depth = 2, eta = 1, nthread = 2, nrounds = 2, objective = "binary:logistic")
-
-
-test_matrix = test
-test_matrix$class = as.numeric(test$class) - 1
-test_matrix = as.matrix(test_matrix)
-
-xg_predictions =  predict(bstDense, newdata = test_matrix, "response")
-auc(response = test$class, xg_predictions, plot = T)
-
+# class_numeric = as.numeric(train$class) - 1
+# train_numeric = train
+# train_numeric$class = class_numeric
+# bstDense <- xgboost(data = as.matrix(train_numeric), label = train_numeric$class, max.depth = 2, eta = 1, nthread = 2, nrounds = 2, objective = "binary:logistic")
+# 
+# 
+# test_matrix = test
+# test_matrix$class = as.numeric(test$class) - 1
+# test_matrix = as.matrix(test_matrix)
+# 
+# xg_predictions =  predict(bstDense, newdata = as.matrix(test_matrix))
+# auc(response = test$class, xg_predictions, plot = T)
+# 
