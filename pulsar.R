@@ -126,14 +126,14 @@ AUC1
 rf1 = randomForest(class~., data = train)
 fr_pred_test = predict(rf1, type = "response", newdata = test)
 auc(test$class, as.numeric(fr_pred_test), plot = T)
-#Area under the curve: 0.9126
+
 
 
 
 ############# Quick Nerual Network  ####################
 nn <- nnet(class~., data = train, size = 2)
-nn_pred = predict(nn2, newdata = test)
-plot(nn2)
+nn_pred = predict(nn, newdata = test)
+plot(nn)
 ROC2 <- roc(test$class, as.numeric(nnet_pred))
 plot(ROC2, col = "purple")
 title("Single Layer NN Model AUC")

@@ -64,6 +64,7 @@ require(nnet)
 require(corrplot)
 require(xgboost)
 require(hrbrthemes)
+require(neuralnet)
 ```
 
 ## Load Data
@@ -143,7 +144,7 @@ summary(logistic_model)
 #It seems a bit odd that excess kurtosis and skew of the DM SNR curve are not significant predictors of pulsars,
 #especially considering that the mean and standard deviation are highly significant.
 p1 = predict(logistic_model, type = "response", newdata = test)
-auc(test$class, p1, plot = T)   #sensitivity = TP rate  specificity = TN rate
+auc(test$class, p1, plot = T)
 ```
 .966 AUC is excellent!  We have a good balance of high specificity and sensitivity with our prediction on the test set.
 Let's see what other models can achieve!
@@ -173,7 +174,7 @@ plot(ROC1, col = "blue")
 title("Best SVM Model AUC")
 AUC1 <- auc(ROC1)
 AUC1
-#better! but 0.9029 is not nearly as good as .966!
+#better!
 ```
 
 ## Random Forest
@@ -181,13 +182,13 @@ AUC1
 rf1 = randomForest(class~., data = train)
 fr_pred_test = predict(rf1, type = "response", newdata = test)
 auc(test$class, as.numeric(fr_pred_test), plot = T)
-#Area under the curve: 0.9126
 ```
 ## Neural Network
 I will build a quick and dirty network with one hidden layer.  Yes you likely can achieve better results if you spent time messing around hyperparameter tuning, various optimization algtorithms, and different architectures, but I will not do that here because I do not care to. The code here had issued with html format so it can only be viewed in the .R file.
 
 
-
+## Summary
+In the end it was the logistic regression model that performed best with an area under the curve of 0.966.
 
 
 
